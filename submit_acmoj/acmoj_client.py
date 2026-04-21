@@ -95,6 +95,13 @@ class ACMOJClient:
 
         return result
 
+    def submit_code(self, problem_id: int, code: str, language: str = "c++") -> Optional[Dict]:
+        data = {"language": language, "code": code}
+        result = self._make_request("POST", f"/problem/{problem_id}/submit", data=data)
+        if result and 'id' in result:
+            self._save_submission_id(result['id'])
+        return result
+
     def get_submission_detail(self, submission_id: int) -> Optional[Dict]:
         return self._make_request("GET", f"/submission/{submission_id}")
 
@@ -122,6 +129,12 @@ def main():
     abort_parser = subparsers.add_parser("abort", help="Abort submission evaluation")
     abort_parser.add_argument("--submission-id", type=int, required=True, help="Submission ID")
 
+    # Sub-command for submitting raw code
+    code_parser = subparsers.add_parser("submit-code", help="Submit raw code")
+    code_parser.add_argument("--problem-id", type=int, required=True, help="Problem ID")
+    code_parser.add_argument("--language", type=str, default="c++", help="Language (e.g., c++, c)")
+    code_parser.add_argument("--file", type=str, required=True, help="Path to code file to upload")
+
     args = parser.parse_args()
 
     if not args.token:
@@ -136,6 +149,14 @@ def main():
         result = client.get_submission_detail(args.submission_id)
     elif args.command == "abort":
         result = client.abort_submission(args.submission_id)
+    elif args.command == "submit-code":
+        try:
+            with open(args.file, 'r', encoding='utf-8') as f:
+                code = f.read()
+        except Exception as e:
+            print(f"Failed to read code file: {e}")
+            return
+        result = client.submit_code(args.problem_id, code, args.language)
 
     if result:
         print(json.dumps(result))
